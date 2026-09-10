@@ -1,7 +1,0 @@
-/home/banis/project_miquland/miqubg/build/CMakeFiles/miqubg.dir
-/home/banis/project_miquland/miqubg/build/CMakeFiles/edit_cache.dir
-/home/banis/project_miquland/miqubg/build/CMakeFiles/rebuild_cache.dir
-/home/banis/project_miquland/miqubg/build/CMakeFiles/list_install_components.dir
-/home/banis/project_miquland/miqubg/build/CMakeFiles/install.dir
-/home/banis/project_miquland/miqubg/build/CMakeFiles/install/local.dir
-/home/banis/project_miquland/miqubg/build/CMakeFiles/install/strip.dir
