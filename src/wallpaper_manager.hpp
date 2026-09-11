@@ -1,6 +1,5 @@
 #pragma once
 
-#include "wallpaper_view.hpp"
 #include <miqutoolkit/miqutoolkit.hpp>
 #include <map>
 #include <string>
@@ -11,7 +10,7 @@ namespace miqubg {
 
 struct OutputConfig {
     std::string image_path;
-    WallpaperMode mode = WallpaperMode::Cover;
+    miqu::FitMode mode = miqu::FitMode::Cover;
     miqu::Color bg_color = miqu::Color::rgb(0.0f, 0.0f, 0.0f);
 };
 
@@ -27,6 +26,8 @@ public:
 
     void init(miqu::AppEngine* engine);
     void sync_outputs();
+
+    static miqu::FitMode parse_mode(const std::string& mode_str);
 
 private:
     OutputConfig get_config_for_output(const std::string& name) const;

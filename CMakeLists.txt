@@ -10,12 +10,9 @@ set(CMAKE_BUILD_WITH_INSTALL_RPATH TRUE)
 
 find_package(PkgConfig REQUIRED)
 pkg_check_modules(MIQUTOOLKIT REQUIRED IMPORTED_TARGET miqutoolkit)
-pkg_check_modules(CAIRO REQUIRED IMPORTED_TARGET cairo)
-pkg_check_modules(GDK_PIXBUF REQUIRED IMPORTED_TARGET gdk-pixbuf-2.0)
 
 add_executable(miqubg
     src/main.cpp
-    src/wallpaper_view.cpp
     src/wallpaper_manager.cpp
 )
 
@@ -25,8 +22,6 @@ target_include_directories(miqubg PRIVATE
 
 target_link_libraries(miqubg PRIVATE
     PkgConfig::MIQUTOOLKIT
-    PkgConfig::CAIRO
-    PkgConfig::GDK_PIXBUF
     stdc++fs
     pthread
 )

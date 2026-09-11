@@ -1,8 +1,19 @@
 #include "wallpaper_manager.hpp"
 #include <iostream>
 #include <set>
+#include <algorithm>
 
 namespace miqubg {
+
+miqu::FitMode WallpaperManager::parse_mode(const std::string& mode_str) {
+    std::string s = mode_str;
+    std::transform(s.begin(), s.end(), s.begin(), ::tolower);
+    if (s == "fit" || s == "contain") return miqu::FitMode::Contain;
+    if (s == "stretch" || s == "fill") return miqu::FitMode::Fill;
+    if (s == "center") return miqu::FitMode::Center;
+    if (s == "tile") return miqu::FitMode::Tile;
+    return miqu::FitMode::Cover;
+}
 
 void WallpaperManager::init(miqu::AppEngine* engine) {
     m_engine = engine;
@@ -39,7 +50,11 @@ void WallpaperManager::sync_outputs() {
                       << (cfg.image_path.empty() ? " (solid color)" : (" image: " + cfg.image_path))
                       << std::endl;
 
-            auto view = std::make_shared<WallpaperView>(cfg.image_path, cfg.mode, cfg.bg_color);
+            auto imageView = miqu::ImageViewBuilder::create()
+                ->source(cfg.image_path)
+                ->fitMode(cfg.mode)
+                ->backgroundColor(cfg.bg_color)
+                ->build();
 
             auto window = miqu::WindowBuilder::create()
                 ->role(miqu::WindowRole::LayerBackground)
@@ -47,7 +62,7 @@ void WallpaperManager::sync_outputs() {
                 ->layerNamespace("wallpaper")
                 ->keyboardInteractive(false)
                 ->exclusiveZone(-1)
-                ->contentView(view)
+                ->contentView(imageView)
                 ->build();
 
             if (window) {

@@ -38,7 +38,7 @@ int main(int argc, char* argv[]) {
     std::signal(SIGTERM, sig_handler);
 
     OutputConfig default_cfg;
-    default_cfg.mode = WallpaperMode::Cover;
+    default_cfg.mode = miqu::FitMode::Cover;
     default_cfg.bg_color = miqu::Color::rgb(0.0f, 0.0f, 0.0f);
 
     std::map<std::string, OutputConfig> output_cfgs;
@@ -79,7 +79,7 @@ int main(int argc, char* argv[]) {
             }
         } else if (arg == "-m" || arg == "--mode") {
             if (i + 1 < argc) {
-                WallpaperMode mode = WallpaperView::parse_mode(argv[++i]);
+                miqu::FitMode mode = WallpaperManager::parse_mode(argv[++i]);
                 if (current_output.empty()) {
                     default_cfg.mode = mode;
                 } else {
