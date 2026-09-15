@@ -6,9 +6,11 @@
 
 using namespace miqubg;
 
-static volatile sig_atomic_t g_stop = 0;
+static std::shared_ptr<miqu::AppEngine> g_engine;
 static void sig_handler(int) {
-    g_stop = 1;
+    if (g_engine) {
+        g_engine->quit(0);
+    }
 }
 
 static void print_usage(const char* prog) {
@@ -121,6 +123,9 @@ int main(int argc, char* argv[]) {
         return 1;
     }
 
+    g_engine = engine;
+    engine->set_quit_on_last_window_closed(false);
+
     // Perform an initial roundtrip to ensure registry globals (outputs) are announced
     wl_display_roundtrip(engine->get_display());
 
@@ -134,12 +139,9 @@ int main(int argc, char* argv[]) {
 
     std::cout << "[miqubg] Daemon started successfully.\n";
 
-    while (!g_stop) {
-        if (wl_display_dispatch(engine->get_display()) < 0) {
-            break;
-        }
-    }
+    int ret = engine->enter_loop();
 
     std::cout << "[miqubg] Shutting down.\n";
-    return 0;
+    g_engine.reset();
+    return ret;
 }
