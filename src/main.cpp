@@ -1,8 +1,11 @@
 #include "wallpaper_manager.hpp"
+#include "ipc.hpp"
 #include <iostream>
+#include <sstream>
 #include <string>
 #include <vector>
 #include <csignal>
+#include <iomanip>
 
 using namespace miqubg;
 
@@ -13,6 +16,30 @@ static void sig_handler(int) {
     }
 }
 
+static std::string mode_to_string(miqu::FitMode mode) {
+    switch (mode) {
+        case miqu::FitMode::Contain: return "contain";
+        case miqu::FitMode::Fill: return "stretch";
+        case miqu::FitMode::Center: return "center";
+        case miqu::FitMode::Tile: return "tile";
+        case miqu::FitMode::Cover:
+        default:
+            return "cover";
+    }
+}
+
+static std::string color_to_hex(const miqu::Color& c) {
+    int r = static_cast<int>(c.r * 255.0f);
+    int g = static_cast<int>(c.g * 255.0f);
+    int b = static_cast<int>(c.b * 255.0f);
+    std::ostringstream oss;
+    oss << "#" << std::hex << std::setfill('0')
+        << std::setw(2) << r
+        << std::setw(2) << g
+        << std::setw(2) << b;
+    return oss.str();
+}
+
 static void print_usage(const char* prog) {
     std::cout << "Usage: " << prog << " [options...] [image_path]\n\n"
               << "Options:\n"
@@ -20,6 +47,7 @@ static void print_usage(const char* prog) {
               << "  -o, --output <name>   Target specific output name (e.g. HDMI-A-1, eDP-1, or * for all)\n"
               << "  -m, --mode <mode>     Scaling mode: fill/cover, fit, stretch, center, tile (default: fill)\n"
               << "  -c, --color <#hex>    Solid background color in hex (e.g. #1e1e2e, default: #000000)\n"
+              << "  -r, --reload          Reload wallpapers across all outputs\n"
               << "  -v, --version         Show version number and quit\n"
               << "  -h, --help            Show this help message\n\n"
               << "Scaling Modes:\n"
@@ -45,6 +73,7 @@ int main(int argc, char* argv[]) {
 
     std::map<std::string, OutputConfig> output_cfgs;
     std::string current_output = ""; // empty means modifying default_cfg
+    bool reload_requested = false;
 
     for (int i = 1; i < argc; ++i) {
         std::string arg = argv[i];
@@ -53,8 +82,10 @@ int main(int argc, char* argv[]) {
             print_usage(argv[0]);
             return 0;
         } else if (arg == "-v" || arg == "--version") {
-            std::cout << "miqubg version 1.0.0\n";
+            std::cout << "miqubg version 1.1.0\n";
             return 0;
+        } else if (arg == "-r" || arg == "--reload") {
+            reload_requested = true;
         } else if (arg == "-i" || arg == "--image") {
             if (i + 1 < argc) {
                 std::string path = argv[++i];
@@ -117,6 +148,42 @@ int main(int argc, char* argv[]) {
         }
     }
 
+    // 1. Check if an active daemon is running to handle this request via IPC
+    if (reload_requested) {
+        std::string resp;
+        if (IPC::send_command("RELOAD", resp)) {
+            std::cout << "[miqubg] Daemon reloaded.\n";
+            return 0;
+        }
+    }
+
+    if (!default_cfg.image_path.empty() || !output_cfgs.empty()) {
+        std::string resp;
+        bool sent_any = false;
+
+        if (!output_cfgs.empty()) {
+            for (const auto& pair : output_cfgs) {
+                std::string cmd = "SET " + pair.first + " " + mode_to_string(pair.second.mode) + " "
+                                  + color_to_hex(pair.second.bg_color) + " " + pair.second.image_path;
+                if (IPC::send_command(cmd, resp)) {
+                    sent_any = true;
+                }
+            }
+        } else if (!default_cfg.image_path.empty()) {
+            std::string cmd = "SET * " + mode_to_string(default_cfg.mode) + " "
+                              + color_to_hex(default_cfg.bg_color) + " " + default_cfg.image_path;
+            if (IPC::send_command(cmd, resp)) {
+                sent_any = true;
+            }
+        }
+
+        if (sent_any) {
+            std::cout << "[miqubg] Wallpaper updated via running daemon.\n";
+            return 0;
+        }
+    }
+
+    // 2. Start as the Persistent Daemon
     auto engine = miqu::AppEngine::create();
     if (!engine) {
         std::cerr << "[miqubg] Failed to create AppEngine. Is a Wayland compositor running?\n";
@@ -137,11 +204,51 @@ int main(int argc, char* argv[]) {
 
     manager.init(engine.get());
 
+    // Initialize IPC Server
+    IPCServer server([&manager, &engine](const std::string& cmd) -> std::string {
+        if (cmd.rfind("SET ", 0) == 0) {
+            std::istringstream iss(cmd.substr(4));
+            std::string output_name, mode_str, color_hex, image_path;
+            if (iss >> output_name >> mode_str >> color_hex) {
+                std::getline(iss, image_path);
+                // Trim leading whitespace from image_path
+                size_t first = image_path.find_first_not_of(" \t");
+                if (first != std::string::npos) {
+                    image_path = image_path.substr(first);
+                } else {
+                    image_path = "";
+                }
+
+                OutputConfig cfg;
+                cfg.image_path = image_path;
+                cfg.mode = WallpaperManager::parse_mode(mode_str);
+                cfg.bg_color = miqu::Color::from_hex(color_hex, miqu::Color::rgb(0.0f, 0.0f, 0.0f));
+
+                engine->post([&manager, output_name, cfg]() {
+                    manager.update_wallpaper(output_name, cfg);
+                });
+                return "OK";
+            }
+            return "ERR Invalid SET arguments";
+        } else if (cmd == "RELOAD") {
+            engine->post([&manager]() {
+                manager.sync_outputs();
+            });
+            return "OK";
+        }
+        return "ERR Unknown command";
+    });
+
+    if (!server.start()) {
+        std::cerr << "[miqubg] Warning: Could not bind IPC socket. Running standalone.\n";
+    }
+
     std::cout << "[miqubg] Daemon started successfully.\n";
 
     int ret = engine->enter_loop();
 
     std::cout << "[miqubg] Shutting down.\n";
+    server.stop();
     g_engine.reset();
     return ret;
 }

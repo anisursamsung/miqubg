@@ -14,6 +14,7 @@ pkg_check_modules(MIQUTOOLKIT REQUIRED IMPORTED_TARGET miqutoolkit)
 add_executable(miqubg
     src/main.cpp
     src/wallpaper_manager.cpp
+    src/ipc.cpp
 )
 
 target_include_directories(miqubg PRIVATE
@@ -41,3 +42,4 @@ target_compile_options(miqubg PRIVATE
 
 include(GNUInstallDirs)
 install(TARGETS miqubg RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR})
+install(FILES assets/wallpaper.png DESTINATION ${CMAKE_INSTALL_DATADIR}/miqubg)
