@@ -42,4 +42,3 @@ target_compile_options(miqubg PRIVATE
 
 include(GNUInstallDirs)
 install(TARGETS miqubg RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR})
-install(FILES assets/wallpaper.png DESTINATION ${CMAKE_INSTALL_DATADIR}/miqubg)

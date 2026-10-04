@@ -29,7 +29,6 @@ public:
     void update_wallpaper(const std::string& output_name, OutputConfig config);
 
     static miqu::FitMode parse_mode(const std::string& mode_str);
-    static std::string find_default_wallpaper();
 
 private:
     OutputConfig get_config_for_output(const std::string& name) const;

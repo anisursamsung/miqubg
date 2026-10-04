@@ -2,9 +2,6 @@
 #include <iostream>
 #include <set>
 #include <algorithm>
-#include <filesystem>
-#include <vector>
-#include <cstdlib>
 #include <thread>
 #include <chrono>
 
@@ -20,47 +17,6 @@ miqu::FitMode WallpaperManager::parse_mode(const std::string& mode_str) {
     return miqu::FitMode::Cover;
 }
 
-std::string WallpaperManager::find_default_wallpaper() {
-    const char* home_env = std::getenv("HOME");
-    std::string home = home_env ? home_env : "";
-
-    std::vector<std::string> search_paths;
-    if (!home.empty()) {
-        search_paths.push_back(home + "/.config/miqubg/wallpaper.png");
-        search_paths.push_back(home + "/.config/miqubg/wallpaper.jpg");
-        search_paths.push_back(home + "/.config/miqubg/wallpaper.jpeg");
-        search_paths.push_back(home + "/.config/theme/current/wallpaper.png");
-        search_paths.push_back(home + "/.config/theme/current/wallpaper.jpg");
-    }
-
-    search_paths.push_back("/usr/share/miqubg/wallpaper.png");
-    search_paths.push_back("/usr/share/miqubg/wallpaper.jpg");
-    search_paths.push_back("/usr/share/backgrounds/miqubg/wallpaper.png");
-    search_paths.push_back("/usr/share/miquland/wallpaper.png");
-
-    for (const auto& path : search_paths) {
-        std::error_code ec;
-        if (std::filesystem::exists(path, ec) && !std::filesystem::is_directory(path, ec)) {
-            return path;
-        }
-    }
-
-    // Also scan /usr/share/backgrounds directory for any valid image
-    std::error_code ec;
-    if (std::filesystem::exists("/usr/share/backgrounds", ec)) {
-        for (const auto& entry : std::filesystem::recursive_directory_iterator("/usr/share/backgrounds", ec)) {
-            if (entry.is_regular_file(ec)) {
-                std::string ext = entry.path().extension().string();
-                std::transform(ext.begin(), ext.end(), ext.begin(), ::tolower);
-                if (ext == ".png" || ext == ".jpg" || ext == ".jpeg" || ext == ".webp") {
-                    return entry.path().string();
-                }
-            }
-        }
-    }
-
-    return "";
-}
 
 void WallpaperManager::init(miqu::AppEngine* engine) {
     m_engine = engine;
@@ -77,14 +33,6 @@ OutputConfig WallpaperManager::get_config_for_output(const std::string& name) co
     auto it = m_output_configs.find(name);
     if (it != m_output_configs.end()) {
         cfg = it->second;
-    }
-
-    std::error_code ec;
-    if (cfg.image_path.empty() || !std::filesystem::exists(cfg.image_path, ec)) {
-        std::string fallback = find_default_wallpaper();
-        if (!fallback.empty()) {
-            cfg.image_path = fallback;
-        }
     }
     return cfg;
 }
